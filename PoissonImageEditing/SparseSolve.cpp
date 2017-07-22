@@ -189,7 +189,7 @@ void draw(const std::vector<cv::Point>& contour, cv::Size& size, cv::Mat& mask)
 
 void getEquation(const cv::Mat& src, const cv::Mat& dst, 
     const cv::Mat& mask, const cv::Mat& index, int count,
-    SparseMat& A, cv::Mat& b, cv::Mat& x)
+    SparseMat& A, cv::Mat& b, cv::Mat& x, bool mixGrad = false)
 {
     CV_Assert(src.data && dst.data && mask.data && index.data);
     CV_Assert((src.type() == CV_8UC1) && (dst.type() == CV_8UC1) &&
@@ -211,6 +211,7 @@ void getEquation(const cv::Mat& src, const cv::Mat& dst,
             {
                 int currIndex = index.at<int>(i, j);
                 int currSrcVal = src.at<unsigned char>(i, j);
+                int currDstVal = dst.at<unsigned char>(i, j);
                 int neighborCount = 0;
                 int bVal = 0;
                 if (i > 0)
@@ -225,7 +226,14 @@ void getEquation(const cv::Mat& src, const cv::Mat& dst,
                     {
                         bVal += dst.at<unsigned char>(i - 1, j);
                     }
-                    bVal += (currSrcVal - src.at<unsigned char>(i - 1, j));
+                    if (mixGrad)
+                    {
+                        int srcGrad = currSrcVal - src.at<unsigned char>(i - 1, j);
+                        int dstGrad = currDstVal - dst.at<unsigned char>(i - 1, j);
+                        bVal += (abs(srcGrad) > abs(dstGrad) ? srcGrad : dstGrad);
+                    }
+                    else
+                        bVal += (currSrcVal - src.at<unsigned char>(i - 1, j));
                 }
                 if (i < rows - 1)
                 {
@@ -239,7 +247,14 @@ void getEquation(const cv::Mat& src, const cv::Mat& dst,
                     {
                         bVal += dst.at<unsigned char>(i + 1, j);
                     }
-                    bVal += (currSrcVal - src.at<unsigned char>(i + 1, j));
+                    if (mixGrad)
+                    {
+                        int srcGrad = currSrcVal - src.at<unsigned char>(i + 1, j);
+                        int dstGrad = currDstVal - dst.at<unsigned char>(i + 1, j);
+                        bVal += (abs(srcGrad) > abs(dstGrad) ? srcGrad : dstGrad);
+                    }
+                    else
+                        bVal += (currSrcVal - src.at<unsigned char>(i + 1, j));
                 }
                 if (j > 0)
                 {
@@ -253,7 +268,14 @@ void getEquation(const cv::Mat& src, const cv::Mat& dst,
                     {
                         bVal += dst.at<unsigned char>(i, j - 1);
                     }
-                    bVal += (currSrcVal - src.at<unsigned char>(i, j - 1));
+                    if (mixGrad)
+                    {
+                        int srcGrad = currSrcVal - src.at<unsigned char>(i, j - 1);
+                        int dstGrad = currDstVal - dst.at<unsigned char>(i, j - 1);
+                        bVal += (abs(srcGrad) > abs(dstGrad) ? srcGrad : dstGrad);
+                    }
+                    else
+                        bVal += (currSrcVal - src.at<unsigned char>(i, j - 1));
                 }
                 if (j < cols - 1)
                 {
@@ -267,12 +289,19 @@ void getEquation(const cv::Mat& src, const cv::Mat& dst,
                     {
                         bVal += dst.at<unsigned char>(i, j + 1);
                     }
-                    bVal += (currSrcVal - src.at<unsigned char>(i, j + 1));
+                    if (mixGrad)
+                    {
+                        int srcGrad = currSrcVal - src.at<unsigned char>(i, j + 1);
+                        int dstGrad = currDstVal - dst.at<unsigned char>(i, j + 1);
+                        bVal += (abs(srcGrad) > abs(dstGrad) ? srcGrad : dstGrad);
+                    }
+                    else
+                        bVal += (currSrcVal - src.at<unsigned char>(i, j + 1));
                 }
                 A.insert(currIndex, currIndex, neighborCount);
                 b.at<double>(currIndex) = bVal;
-                //x.at<double>(currIndex) = currSrcVal;
-                x.at<double>(currIndex) = dst.at<unsigned char>(i, j);
+                x.at<double>(currIndex) = currSrcVal;
+                //x.at<double>(currIndex) = dst.at<unsigned char>(i, j);
             }
         }
     }
@@ -301,7 +330,7 @@ void copy(const cv::Mat& val, const cv::Mat& mask, const cv::Mat& index, cv::Mat
     }
 }
 
-void PoissonImageEdit(const cv::Mat& src, const cv::Mat& mask, cv::Mat& dst)
+void PoissonImageEdit(const cv::Mat& src, const cv::Mat& mask, cv::Mat& dst, bool mixGrad)
 {
     CV_Assert(src.data && mask.data && dst.data);
     CV_Assert(src.size() == mask.size() && mask.size() == dst.size());
@@ -315,7 +344,7 @@ void PoissonImageEdit(const cv::Mat& src, const cv::Mat& mask, cv::Mat& dst)
     makeIndex(mask, index, numElems);
     if (src.type() == CV_8UC1)
     {
-        getEquation(src, dst, mask, index, numElems, A, b, x);
+        getEquation(src, dst, mask, index, numElems, A, b, x, mixGrad);
         std::vector<int> split;
         A.calcSplit(split);
         solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
@@ -334,7 +363,7 @@ void PoissonImageEdit(const cv::Mat& src, const cv::Mat& mask, cv::Mat& dst)
 
         for (int i = 0; i < 3; i++)
         {
-            getEquation(srcROISplit[i], dstROISplit[i], mask, index, numElems, A, b, x);
+            getEquation(srcROISplit[i], dstROISplit[i], mask, index, numElems, A, b, x, mixGrad);
             std::vector<int> split;
             A.calcSplit(split);
             solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
@@ -345,7 +374,7 @@ void PoissonImageEdit(const cv::Mat& src, const cv::Mat& mask, cv::Mat& dst)
 }
 
 void PoissonImageEdit(const cv::Mat& src, const std::vector<cv::Point>& srcContour,
-    cv::Point ofsSrcToDst, cv::Mat& dst)
+    cv::Point ofsSrcToDst, cv::Mat& dst, bool mixGrad)
 {
     cv::Mat mask, index;
     SparseMat A;
@@ -365,7 +394,7 @@ void PoissonImageEdit(const cv::Mat& src, const std::vector<cv::Point>& srcConto
     //cv::imshow("dst roi", dstROI);
     //cv::waitKey(0);
 
-    PoissonImageEdit(srcROI, mask, dstROI);
+    PoissonImageEdit(srcROI, mask, dstROI, mixGrad);
     return;
 
     if (src.type() == CV_8UC1)
@@ -444,7 +473,7 @@ cv::Rect getNonZeroBoundingRectExtendOnePixel(const cv::Mat& mask)
 }
 
 void PoissonImageEdit(const cv::Mat& src, const cv::Mat& srcMask,
-    cv::Point ofsSrcToDst, cv::Mat& dst)
+    cv::Point ofsSrcToDst, cv::Mat& dst, bool mixGrad)
 {
     cv::Mat mask, index;
     SparseMat A;
@@ -464,38 +493,8 @@ void PoissonImageEdit(const cv::Mat& src, const cv::Mat& srcMask,
     //cv::imshow("dst roi", dstROI);
     //cv::waitKey(0);
 
-    PoissonImageEdit(srcROI, mask, dstROI);
+    PoissonImageEdit(srcROI, mask, dstROI, mixGrad);
     return;
-
-    if (src.type() == CV_8UC1)
-    {
-        getEquation(srcROI, dstROI, mask, index, numElems, A, b, x);
-        std::vector<int> split;
-        A.calcSplit(split);
-        solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
-        copy(x, mask, index, dstROI);
-    }
-    else if (src.type() == CV_8UC3)
-    {
-        cv::Mat srcROISplit[3], dstROISplit[3];
-        for (int i = 0; i < 3; i++)
-        {
-            srcROISplit[i].create(src.size(), CV_8UC1);
-            dstROISplit[i].create(dst.size(), CV_8UC1);
-        }
-        cv::split(srcROI, srcROISplit);
-        cv::split(dstROI, dstROISplit);
-
-        for (int i = 0; i < 3; i++)
-        {
-            getEquation(srcROISplit[i], dstROISplit[i], mask, index, numElems, A, b, x);
-            std::vector<int> split;
-            A.calcSplit(split);
-            solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
-            copy(x, mask, index, dstROISplit[i]);
-        }
-        cv::merge(dstROISplit, 3, dstROI);
-    }
 }
 
 void main1()
@@ -684,14 +683,15 @@ void main2()
     //cv::imwrite("dst.bmp", dst);
 }
 
+// image sources http://cs.brown.edu/courses/csci1950-g/results/proj2/pdoran/
 void main()
 {
-    cv::Mat src = cv::imread("src_img01.jpg");
-    cv::Mat srcMask = cv::imread("mask_img01.jpg", cv::IMREAD_GRAYSCALE);
-    cv::Mat dst = cv::imread("tar_img01.jpg");
+    cv::Mat src = cv::imread("src_img03.jpg");
+    cv::Mat srcMask = cv::imread("mask_img03.jpg", cv::IMREAD_GRAYSCALE);
+    cv::Mat dst = cv::imread("tar_img03.jpg");
     cv::Point ofsSrcToDst(10, 10);
     cv::threshold(srcMask, srcMask, 128, 255, cv::THRESH_BINARY);
-    PoissonImageEdit(src, srcMask, ofsSrcToDst, dst);
+    PoissonImageEdit(src, srcMask, ofsSrcToDst, dst, true);
     cv::imshow("dst", dst);
     cv::waitKey(0);
     
