@@ -135,7 +135,7 @@ void solve(const IndexedValue* A, const int* length, const int* diagPos,
         }
         if (count == rows)
         {
-            printf("count = %d, end\n", iter + 1);
+            printf("converge iter count = %d, end\n", iter + 1);
             break;
         }
     }
@@ -344,7 +344,7 @@ void copy(const cv::Mat& val, const cv::Mat& mask, const cv::Mat& index, cv::Mat
     }
 }
 
-void PoissonImageEdit(const cv::Mat& src, const cv::Mat& mask, cv::Mat& dst, bool mixGrad)
+void PoissonImageEdit(const cv::Mat& src, const cv::Mat& mask, cv::Mat& dst, bool mixGrad = false)
 {
     CV_Assert(src.data && mask.data && dst.data);
     CV_Assert(src.size() == mask.size() && mask.size() == dst.size());
@@ -388,7 +388,7 @@ void PoissonImageEdit(const cv::Mat& src, const cv::Mat& mask, cv::Mat& dst, boo
 }
 
 void PoissonImageEdit(const cv::Mat& src, const std::vector<cv::Point>& srcContour,
-    cv::Point ofsSrcToDst, cv::Mat& dst, bool mixGrad)
+    cv::Point ofsSrcToDst, cv::Mat& dst, bool mixGrad = false)
 {
     cv::Mat mask, index;
     SparseMat A;
@@ -397,17 +397,10 @@ void PoissonImageEdit(const cv::Mat& src, const std::vector<cv::Point>& srcConto
 
     cv::Rect srcRect;
     draw(srcContour, src.size(), srcRect, mask);
-    //cv::imshow("mask", mask);
-    //cv::waitKey(0);
     makeIndex(mask, index, numElems);
 
     cv::Mat srcROI = src(srcRect);
     cv::Mat dstROI = dst(srcRect + ofsSrcToDst);
-    
-    //cv::imshow("src roi", srcROI);
-    //cv::imshow("dst roi", dstROI);
-    //cv::waitKey(0);
-
     PoissonImageEdit(srcROI, mask, dstROI, mixGrad);
     return;
 }
@@ -457,7 +450,7 @@ cv::Rect getNonZeroBoundingRectExtendOnePixel(const cv::Mat& mask)
 }
 
 void PoissonImageEdit(const cv::Mat& src, const cv::Mat& srcMask,
-    cv::Point ofsSrcToDst, cv::Mat& dst, bool mixGrad)
+    cv::Point ofsSrcToDst, cv::Mat& dst, bool mixGrad = false)
 {
     cv::Mat mask, index;
     SparseMat A;
@@ -466,178 +459,95 @@ void PoissonImageEdit(const cv::Mat& src, const cv::Mat& srcMask,
 
     cv::Rect srcRect = getNonZeroBoundingRectExtendOnePixel(srcMask);
     mask = srcMask(srcRect);
-    //cv::imshow("mask", mask);
-    //cv::waitKey(0);
     makeIndex(mask, index, numElems);
 
     cv::Mat srcROI = src(srcRect);
     cv::Mat dstROI = dst(srcRect + ofsSrcToDst);
-    
-    //cv::imshow("src roi", srcROI);
-    //cv::imshow("dst roi", dstROI);
-    //cv::waitKey(0);
-
     PoissonImageEdit(srcROI, mask, dstROI, mixGrad);
     return;
 }
 
 void main()
 {
-    //double A[] = {10, -1, 2, 0,
-    //             -1, 11, -1, 3,
-    //             2, -1, 10, -1,
-    //             0, 3, -1, 8};
-    //double b[] = {6, 25, -11, 15};
-    //double x[] = {0, 0, 0, 0};
-    //double r[] = {0, 0, 0, 0};
-    //solve(A, b, r, 4, 4 * sizeof(double), 1000, 0.0001);
-    //return;
-
-    //std::vector<std::vector<cv::Point> > contours(1);
-    //contours[0].resize(4);
-    //contours[0][0] = cv::Point(10, 10);
-    //contours[0][1] = cv::Point(10, 30);
-    //contours[0][2] = cv::Point(30, 30);
-    //contours[0][3] = cv::Point(30, 10);
-    //cv::Mat image = cv::Mat::zeros(100, 100, CV_8UC1);
-    //cv::drawContours(image, contours, -1, cv::Scalar(255), -1, 8, cv::noArray(), 0, cv::Point(-10, -10));
-    //cv::imshow("image", image);
-    //cv::waitKey(0);
-
-    SparseMat sMat(2, 8);
-    sMat.insert(0, 5, 0.2);
-    sMat.insert(0, 6, 0.5);
-    sMat.insert(0, 3, 1.0);
-    sMat.insert(0, 1, 3.0);
-    sMat.insert(0, 8, 2.0);
-    sMat.insert(0, 2, 8.0);
-    sMat.insert(1, 5, 7.0);
-    sMat.insert(1, 4, 0.5);
-    //return;
-
-    cv::Mat src/*Color*/ = cv::imread("C:\\Users\\zhengxuping\\Desktop\\GreatWhiteShark.jpg");
-    cv::Mat dst/*Color*/ = cv::imread("C:\\Users\\zhengxuping\\Desktop\\beach.jpg");
-
-    //cv::Mat src, dst;
-    //cv::cvtColor(srcColor, src, CV_BGR2GRAY);
-    //cv::cvtColor(dstColor, dst, CV_BGR2GRAY);
-
-    std::vector<cv::Point> contour(4);
-    contour[0] = cv::Point(380, 300) - cv::Point(320, 230);
-    contour[1] = cv::Point(550, 300) - cv::Point(320, 230);
-    contour[2] = cv::Point(550, 420) - cv::Point(320, 230);
-    contour[3] = cv::Point(380, 420) - cv::Point(320, 230);
-    cv::Point ofsSrcToDst = cv::Point(320, 230);
-
-    PoissonImageEdit(src, contour, ofsSrcToDst, dst, false);
-    cv::imshow("src", src);
-    cv::imshow("dst", dst);
-    cv::waitKey(0);
-    return;
-
-    cv::Rect extendRect;
-    cv::Mat mask, index;
-    SparseMat A;
-    cv::Mat b, x;
-    int numElems;
-
-    draw(contour, src.size(), extendRect, mask);
-    cv::imshow("mask", mask);
-    cv::waitKey(0);
-    makeIndex(mask, index, numElems);
-
-    cv::Mat srcROI(src, extendRect), dstROI(dst, extendRect + ofsSrcToDst);
-    
-    //cv::imshow("src roi", srcROI);
-    //cv::imshow("dst roi", dstROI);
-    //cv::waitKey(0);
-
-    if (src.type() == CV_8UC1)
     {
-        getEquation(srcROI, dstROI, mask, index, numElems, A, b, x);
-        std::vector<int> diagPos;
-        A.calcDiagonalElementsPositions(diagPos);
-        solve(A.data, &A.count[0], &diagPos[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
-        copy(x, mask, index, dstROI);
-    }
-    else if (src.type() == CV_8UC3)
-    {
-        cv::Mat srcROISplit[3], dstROISplit[3];
-        for (int i = 0; i < 3; i++)
-        {
-            srcROISplit[i].create(srcROI.size(), CV_8UC1);
-            dstROISplit[i].create(dstROI.size(), CV_8UC1);
-        }
-        cv::split(srcROI, srcROISplit);
-        cv::split(dstROI, dstROISplit);
+        cv::Mat src = cv::imread("GreatWhiteShark.jpg");
+        cv::Mat dst = cv::imread("beach.jpg");
 
-        for (int i = 0; i < 3; i++)
-        {
-            getEquation(srcROISplit[i], dstROISplit[i], mask, index, numElems, A, b, x);
-            std::vector<int> diagPos;
-            A.calcDiagonalElementsPositions(diagPos);
-            solve(A.data, &A.count[0], &diagPos[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
-            copy(x, mask, index, dstROISplit[i]);
-        }
-        cv::merge(dstROISplit, 3, dstROI);
+        std::vector<cv::Point> contour(4);
+        contour[0] = cv::Point(380, 300) - cv::Point(320, 230);
+        contour[1] = cv::Point(550, 300) - cv::Point(320, 230);
+        contour[2] = cv::Point(550, 420) - cv::Point(320, 230);
+        contour[3] = cv::Point(380, 420) - cv::Point(320, 230);
+        cv::Point ofsSrcToDst = cv::Point(320, 230);
+
+        PoissonImageEdit(src, contour, ofsSrcToDst, dst, true);
+        cv::imshow("src", src);
+        cv::imshow("dst", dst);
+        cv::waitKey(0);
     }
 
-    cv::imshow("src", src);
-    cv::imshow("dst", dst);
-    cv::waitKey(0);
-    //cv::imwrite("dst.bmp", dst);
-}
+    {
+        cv::Mat src = cv::imread("220px-EyePhoto.jpg");
+        //cv::Mat dst = cv::imread("1074px-HandPhoto.jpg");
+        cv::Mat dst = cv::imread("1024px-Big_Tree_with_Red_Sky_in_the_Winter_Night.jpg");
 
-void main2()
-{
-    //cv::Mat src = cv::imread("C:\\Users\\zhengxuping\\Desktop\\GreatWhiteShark.jpg");
-    //cv::Mat dst = cv::imread("C:\\Users\\zhengxuping\\Desktop\\beach.jpg");
+        std::vector<cv::Point> srcContour(4);
+        srcContour[0] = cv::Point(1, 1);
+        srcContour[1] = cv::Point(218, 1);
+        srcContour[2] = cv::Point(218, 130);
+        srcContour[3] = cv::Point(1, 130);
+        cv::Point ofsSrcToDst(570, 300);
 
-    //std::vector<cv::Point> srcContour(4);
-    //srcContour[0] = cv::Point(380, 300) - cv::Point(320, 230);
-    //srcContour[1] = cv::Point(550, 300) - cv::Point(320, 230);
-    //srcContour[2] = cv::Point(550, 420) - cv::Point(320, 230);
-    //srcContour[3] = cv::Point(380, 420) - cv::Point(320, 230);
-    //std::vector<cv::Point> dstContour(4);
-    //dstContour[0] = cv::Point(380, 300);
-    //dstContour[1] = cv::Point(550, 300);
-    //dstContour[2] = cv::Point(550, 420);
-    //dstContour[3] = cv::Point(380, 420);
-    //cv::Point ofsSrcToDst = dstContour[0] - srcContour[0];
+        PoissonImageEdit(src, srcContour, ofsSrcToDst, dst, true);
+        cv::imshow("src", src);
+        cv::imshow("dst", dst);
+        cv::waitKey(0);
+    }
 
-    cv::Mat src = cv::imread("220px-EyePhoto.jpg");
-    //cv::Mat dst = cv::imread("1074px-HandPhoto.jpg");
-    cv::Mat dst = cv::imread("1024px-Big_Tree_with_Red_Sky_in_the_Winter_Night.jpg");
+    // image sources http://cs.brown.edu/courses/csci1950-g/results/proj2/pdoran/
 
-    std::vector<cv::Point> srcContour(4);
-    srcContour[0] = cv::Point(1, 1);
-    srcContour[1] = cv::Point(218, 1);
-    srcContour[2] = cv::Point(218, 130);
-    srcContour[3] = cv::Point(1, 130);
+    {
+        cv::Mat src = cv::imread("src_img01.jpg");
+        cv::Mat srcMask = cv::imread("mask_img01.jpg", cv::IMREAD_GRAYSCALE);
+        cv::Mat dst = cv::imread("tar_img01.jpg");
+        cv::Point ofsSrcToDst(200, 200);
+        cv::threshold(srcMask, srcMask, 128, 255, cv::THRESH_BINARY);
+        PoissonImageEdit(src, srcMask, ofsSrcToDst, dst, true);
+        cv::imshow("dst", dst);
+        cv::waitKey(0);
+    }
 
-    cv::Point ofsSrcToDst(570, 300);
-    std::vector<cv::Point> dstContour(4);
-    dstContour[0] = srcContour[0] + ofsSrcToDst;
-    dstContour[1] = srcContour[1] + ofsSrcToDst;
-    dstContour[2] = srcContour[2] + ofsSrcToDst;
-    dstContour[3] = srcContour[3] + ofsSrcToDst;
+    {
+        cv::Mat src = cv::imread("src_img02.jpg");
+        cv::Mat srcMask = cv::imread("mask_img02.jpg", cv::IMREAD_GRAYSCALE);
+        cv::Mat dst = cv::imread("tar_img02.jpg");
+        cv::Point ofsSrcToDst(20, 200);
+        cv::threshold(srcMask, srcMask, 128, 255, cv::THRESH_BINARY);
+        PoissonImageEdit(src, srcMask, ofsSrcToDst, dst, true);
+        cv::imshow("dst", dst);
+        cv::waitKey(0);
+    }
 
-    PoissonImageEdit(src, srcContour, ofsSrcToDst, dst, true);
-    cv::imshow("src", src);
-    cv::imshow("dst", dst);
-    cv::waitKey(0);
-}
+    {
+        cv::Mat src = cv::imread("src_img03.jpg");
+        cv::Mat srcMask = cv::imread("mask_img03.jpg", cv::IMREAD_GRAYSCALE);
+        cv::Mat dst = cv::imread("tar_img03.jpg");
+        cv::Point ofsSrcToDst(20, 20);
+        cv::threshold(srcMask, srcMask, 128, 255, cv::THRESH_BINARY);
+        PoissonImageEdit(src, srcMask, ofsSrcToDst, dst, true);
+        cv::imshow("dst", dst);
+        cv::waitKey(0);
+    }
 
-// image sources http://cs.brown.edu/courses/csci1950-g/results/proj2/pdoran/
-void main3()
-{
-    cv::Mat src = cv::imread("src_img03.jpg");
-    cv::Mat srcMask = cv::imread("mask_img03.jpg", cv::IMREAD_GRAYSCALE);
-    cv::Mat dst = cv::imread("tar_img03.jpg");
-    cv::Point ofsSrcToDst(10, 10);
-    cv::threshold(srcMask, srcMask, 128, 255, cv::THRESH_BINARY);
-    PoissonImageEdit(src, srcMask, ofsSrcToDst, dst, true);
-    cv::imshow("dst", dst);
-    cv::waitKey(0);
+    {
+        cv::Mat src = cv::imread("src_img04.jpg");
+        cv::Mat srcMask = cv::imread("mask_img04.jpg", cv::IMREAD_GRAYSCALE);
+        cv::Mat dst = cv::imread("tar_img04.jpg");
+        cv::Point ofsSrcToDst(20, 20);
+        cv::threshold(srcMask, srcMask, 128, 255, cv::THRESH_BINARY);
+        PoissonImageEdit(src, srcMask, ofsSrcToDst, dst, true);
+        cv::imshow("dst", dst);
+        cv::waitKey(0);
+    }
     
 }
