@@ -396,36 +396,6 @@ void PoissonImageEdit(const cv::Mat& src, const std::vector<cv::Point>& srcConto
 
     PoissonImageEdit(srcROI, mask, dstROI, mixGrad);
     return;
-
-    if (src.type() == CV_8UC1)
-    {
-        getEquation(srcROI, dstROI, mask, index, numElems, A, b, x);
-        std::vector<int> split;
-        A.calcSplit(split);
-        solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
-        copy(x, mask, index, dstROI);
-    }
-    else if (src.type() == CV_8UC3)
-    {
-        cv::Mat srcROISplit[3], dstROISplit[3];
-        for (int i = 0; i < 3; i++)
-        {
-            srcROISplit[i].create(src.size(), CV_8UC1);
-            dstROISplit[i].create(dst.size(), CV_8UC1);
-        }
-        cv::split(srcROI, srcROISplit);
-        cv::split(dstROI, dstROISplit);
-
-        for (int i = 0; i < 3; i++)
-        {
-            getEquation(srcROISplit[i], dstROISplit[i], mask, index, numElems, A, b, x);
-            std::vector<int> split;
-            A.calcSplit(split);
-            solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
-            copy(x, mask, index, dstROISplit[i]);
-        }
-        cv::merge(dstROISplit, 3, dstROI);
-    }
 }
 
 cv::Rect getNonZeroBoundingRectExtendOnePixel(const cv::Mat& mask)
@@ -596,7 +566,7 @@ void main1()
     //cv::imwrite("dst.bmp", dst);
 }
 
-void main2()
+void main()
 {
     //cv::Mat src = cv::imread("C:\\Users\\zhengxuping\\Desktop\\GreatWhiteShark.jpg");
     //cv::Mat dst = cv::imread("C:\\Users\\zhengxuping\\Desktop\\beach.jpg");
@@ -614,7 +584,8 @@ void main2()
     //cv::Point ofsSrcToDst = dstContour[0] - srcContour[0];
 
     cv::Mat src = cv::imread("220px-EyePhoto.jpg");
-    cv::Mat dst = cv::imread("1074px-HandPhoto.jpg");
+    //cv::Mat dst = cv::imread("1074px-HandPhoto.jpg");
+    cv::Mat dst = cv::imread("1024px-Big_Tree_with_Red_Sky_in_the_Winter_Night.jpg");
 
     std::vector<cv::Point> srcContour(4);
     srcContour[0] = cv::Point(1, 1);
@@ -629,62 +600,14 @@ void main2()
     dstContour[2] = srcContour[2] + ofsSrcToDst;
     dstContour[3] = srcContour[3] + ofsSrcToDst;
 
-    cv::Mat mask, index;
-    SparseMat A;
-    cv::Mat b, x;
-    int numElems;
-
-    cv::Rect srcRect;
-    draw(srcContour, src.size(), srcRect, mask);
-    cv::imshow("mask", mask);
-    cv::waitKey(0);
-    makeIndex(mask, index, numElems);
-
-    cv::Mat srcROI = src(srcRect);
-    cv::Mat dstROI = dst(srcRect + ofsSrcToDst);
-    
-    //cv::imshow("src roi", srcROI);
-    //cv::imshow("dst roi", dstROI);
-    //cv::waitKey(0);
-
-    if (src.type() == CV_8UC1)
-    {
-        getEquation(srcROI, dstROI, mask, index, numElems, A, b, x);
-        std::vector<int> split;
-        A.calcSplit(split);
-        solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
-        copy(x, mask, index, dstROI);
-    }
-    else if (src.type() == CV_8UC3)
-    {
-        cv::Mat srcROISplit[3], dstROISplit[3];
-        for (int i = 0; i < 3; i++)
-        {
-            srcROISplit[i].create(src.size(), CV_8UC1);
-            dstROISplit[i].create(dst.size(), CV_8UC1);
-        }
-        cv::split(srcROI, srcROISplit);
-        cv::split(dstROI, dstROISplit);
-
-        for (int i = 0; i < 3; i++)
-        {
-            getEquation(srcROISplit[i], dstROISplit[i], mask, index, numElems, A, b, x);
-            std::vector<int> split;
-            A.calcSplit(split);
-            solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
-            copy(x, mask, index, dstROISplit[i]);
-        }
-        cv::merge(dstROISplit, 3, dstROI);
-    }
-
+    PoissonImageEdit(src, srcContour, ofsSrcToDst, dst, true);
     cv::imshow("src", src);
     cv::imshow("dst", dst);
     cv::waitKey(0);
-    //cv::imwrite("dst.bmp", dst);
 }
 
 // image sources http://cs.brown.edu/courses/csci1950-g/results/proj2/pdoran/
-void main()
+void main3()
 {
     cv::Mat src = cv::imread("src_img03.jpg");
     cv::Mat srcMask = cv::imread("mask_img03.jpg", cv::IMREAD_GRAYSCALE);
