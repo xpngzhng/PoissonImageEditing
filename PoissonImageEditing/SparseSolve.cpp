@@ -347,6 +347,50 @@ void copy(const cv::Mat& val, const cv::Mat& mask, const cv::Mat& index, cv::Mat
     }
 }
 
+cv::Rect getNonZeroBoundingRectExtendOnePixel(const cv::Mat& mask)
+{
+    CV_Assert(mask.data && mask.type() == CV_8UC1);
+    int rows = mask.rows, cols = mask.cols;
+    int top = rows, bottom = -1, left = cols, right = -1;
+    for (int i = 0; i < rows; i++)
+    {
+        if (cv::countNonZero(mask.row(i)))
+        {
+            top = i;
+            break;
+        }
+    }
+    for (int i = rows - 1; i >= 0; i--)
+    {
+        if (cv::countNonZero(mask.row(i)))
+        {
+            bottom = i;
+            break;
+        }
+    }
+    for (int i = 0; i < cols; i++)
+    {
+        if (cv::countNonZero(mask.col(i)))
+        {
+            left = i;
+            break;
+        }
+    }
+    for (int i = cols - 1; i >= 0; i--)
+    {
+        if (cv::countNonZero(mask.col(i)))
+        {
+            right = i;
+            break;
+        }
+    }
+    CV_Assert(top > 0 && top < rows - 1 &&
+        bottom > 0 && bottom < rows - 1 &&
+        left > 0 && left < cols - 1 &&
+        right > 0 && right < cols - 1);
+    return cv::Rect(left - 1, top - 1, right - left + 3, bottom - top + 3);
+}
+
 /*!
   The basic Poisson image editing function.
   Source image, mask image and destination image should have the same size.
@@ -447,49 +491,6 @@ void PoissonImageEdit(const cv::Mat& src, const std::vector<cv::Point>& srcConto
     return;
 }
 
-cv::Rect getNonZeroBoundingRectExtendOnePixel(const cv::Mat& mask)
-{
-    CV_Assert(mask.data && mask.type() == CV_8UC1);
-    int rows = mask.rows, cols = mask.cols;
-    int top = rows, bottom = -1, left = cols, right = -1;
-    for (int i = 0; i < rows; i++)
-    {
-        if (cv::countNonZero(mask.row(i)))
-        {
-            top = i;
-            break;
-        }
-    }
-    for (int i = rows - 1; i >= 0; i--)
-    {
-        if (cv::countNonZero(mask.row(i)))
-        {
-            bottom = i;
-            break;
-        }
-    }
-    for (int i = 0; i < cols; i++)
-    {
-        if (cv::countNonZero(mask.col(i)))
-        {
-            left = i;
-            break;
-        }
-    }
-    for (int i = cols - 1; i >= 0; i--)
-    {
-        if (cv::countNonZero(mask.col(i)))
-        {
-            right = i;
-            break;
-        }
-    }
-    CV_Assert(top > 0 && top < rows - 1 &&
-        bottom > 0 && bottom < rows - 1 &&
-        left > 0 && left < cols - 1 &&
-        right > 0 && right < cols - 1);
-    return cv::Rect(left - 1, top - 1, right - left + 3, bottom - top + 3);
-}
 
 /*!
   Overloaded Poisson image editing function.
@@ -579,6 +580,8 @@ void main()
     {
         // Eye photo from 
         // https://en.wikipedia.org/wiki/Gradient-domain_image_processing
+        // Tree photo from 
+        // https://commons.wikimedia.org/wiki/File:Big_Tree_with_Red_Sky_in_the_Winter_Night.jpg?uselang=zh-cn
         cv::Mat src = cv::imread("220px-EyePhoto.jpg");
         cv::Mat dst = cv::imread("1024px-Big_Tree_with_Red_Sky_in_the_Winter_Night.jpg");
 #if GRAY
