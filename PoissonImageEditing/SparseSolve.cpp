@@ -155,7 +155,7 @@ void makeIndex(const cv::Mat& mask, cv::Mat& index, int& numElems)
     numElems = count;
 }
 
-void draw(const std::vector<cv::Point>& contour, cv::Size& imageSize, cv::Rect& extendRect, cv::Mat& mask)
+void draw(const std::vector<cv::Point>& contour, const cv::Size& imageSize, cv::Rect& extendRect, cv::Mat& mask)
 {
     cv::Rect contourRect = cv::boundingRect(contour);
     int left, right, top, bottom;
@@ -163,10 +163,10 @@ void draw(const std::vector<cv::Point>& contour, cv::Size& imageSize, cv::Rect& 
     right = contourRect.x + contourRect.width;
     top = contourRect.y;
     bottom = contourRect.y + contourRect.height;
-    if (left > 0) left--;
-    if (right < imageSize.width) right++;
-    if (top > 0) top--;
-    if (bottom < imageSize.height) bottom++;
+    CV_Assert(left > 0); left--;
+    CV_Assert(right < imageSize.width); right++;
+    CV_Assert(top > 0); top--;
+    CV_Assert(bottom < imageSize.height); bottom++;
     extendRect.x = left;
     extendRect.y = top;
     extendRect.width = right - left;
@@ -301,6 +301,203 @@ void copy(const cv::Mat& val, const cv::Mat& mask, const cv::Mat& index, cv::Mat
     }
 }
 
+void PoissonImageEdit(const cv::Mat& src, const cv::Mat& mask, cv::Mat& dst)
+{
+    CV_Assert(src.data && mask.data && dst.data);
+    CV_Assert(src.size() == mask.size() && mask.size() == dst.size());
+    CV_Assert(mask.type() == CV_8UC1);
+
+    cv::Mat index;
+    SparseMat A;
+    cv::Mat b, x;
+    int numElems;
+
+    makeIndex(mask, index, numElems);
+    if (src.type() == CV_8UC1)
+    {
+        getEquation(src, dst, mask, index, numElems, A, b, x);
+        std::vector<int> split;
+        A.calcSplit(split);
+        solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
+        copy(x, mask, index, dst);
+    }
+    else if (src.type() == CV_8UC3)
+    {
+        cv::Mat srcROISplit[3], dstROISplit[3];
+        for (int i = 0; i < 3; i++)
+        {
+            srcROISplit[i].create(src.size(), CV_8UC1);
+            dstROISplit[i].create(dst.size(), CV_8UC1);
+        }
+        cv::split(src, srcROISplit);
+        cv::split(dst, dstROISplit);
+
+        for (int i = 0; i < 3; i++)
+        {
+            getEquation(srcROISplit[i], dstROISplit[i], mask, index, numElems, A, b, x);
+            std::vector<int> split;
+            A.calcSplit(split);
+            solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
+            copy(x, mask, index, dstROISplit[i]);
+        }
+        cv::merge(dstROISplit, 3, dst);
+    }
+}
+
+void PoissonImageEdit(const cv::Mat& src, const std::vector<cv::Point>& srcContour,
+    cv::Point ofsSrcToDst, cv::Mat& dst)
+{
+    cv::Mat mask, index;
+    SparseMat A;
+    cv::Mat b, x;
+    int numElems;
+
+    cv::Rect srcRect;
+    draw(srcContour, src.size(), srcRect, mask);
+    //cv::imshow("mask", mask);
+    //cv::waitKey(0);
+    makeIndex(mask, index, numElems);
+
+    cv::Mat srcROI = src(srcRect);
+    cv::Mat dstROI = dst(srcRect + ofsSrcToDst);
+    
+    //cv::imshow("src roi", srcROI);
+    //cv::imshow("dst roi", dstROI);
+    //cv::waitKey(0);
+
+    PoissonImageEdit(srcROI, mask, dstROI);
+    return;
+
+    if (src.type() == CV_8UC1)
+    {
+        getEquation(srcROI, dstROI, mask, index, numElems, A, b, x);
+        std::vector<int> split;
+        A.calcSplit(split);
+        solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
+        copy(x, mask, index, dstROI);
+    }
+    else if (src.type() == CV_8UC3)
+    {
+        cv::Mat srcROISplit[3], dstROISplit[3];
+        for (int i = 0; i < 3; i++)
+        {
+            srcROISplit[i].create(src.size(), CV_8UC1);
+            dstROISplit[i].create(dst.size(), CV_8UC1);
+        }
+        cv::split(srcROI, srcROISplit);
+        cv::split(dstROI, dstROISplit);
+
+        for (int i = 0; i < 3; i++)
+        {
+            getEquation(srcROISplit[i], dstROISplit[i], mask, index, numElems, A, b, x);
+            std::vector<int> split;
+            A.calcSplit(split);
+            solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
+            copy(x, mask, index, dstROISplit[i]);
+        }
+        cv::merge(dstROISplit, 3, dstROI);
+    }
+}
+
+cv::Rect getNonZeroBoundingRectExtendOnePixel(const cv::Mat& mask)
+{
+    CV_Assert(mask.data && mask.type() == CV_8UC1);
+    int rows = mask.rows, cols = mask.cols;
+    int top = rows, bottom = -1, left = cols, right = -1;
+    for (int i = 0; i < rows; i++)
+    {
+        if (cv::countNonZero(mask.row(i)))
+        {
+            top = i;
+            break;
+        }
+    }
+    for (int i = rows - 1; i >= 0; i--)
+    {
+        if (cv::countNonZero(mask.row(i)))
+        {
+            bottom = i;
+            break;
+        }
+    }
+    for (int i = 0; i < cols; i++)
+    {
+        if (cv::countNonZero(mask.col(i)))
+        {
+            left = i;
+            break;
+        }
+    }
+    for (int i = cols - 1; i >= 0; i--)
+    {
+        if (cv::countNonZero(mask.col(i)))
+        {
+            right = i;
+            break;
+        }
+    }
+    CV_Assert(top > 0 && top < rows - 1 &&
+        bottom > 0 && bottom < rows - 1 &&
+        left > 0 && left < cols - 1 &&
+        right > 0 && right < cols - 1);
+    return cv::Rect(left - 1, top - 1, right - left + 3, bottom - top + 3);
+}
+
+void PoissonImageEdit(const cv::Mat& src, const cv::Mat& srcMask,
+    cv::Point ofsSrcToDst, cv::Mat& dst)
+{
+    cv::Mat mask, index;
+    SparseMat A;
+    cv::Mat b, x;
+    int numElems;
+
+    cv::Rect srcRect = getNonZeroBoundingRectExtendOnePixel(srcMask);
+    mask = srcMask(srcRect);
+    //cv::imshow("mask", mask);
+    //cv::waitKey(0);
+    makeIndex(mask, index, numElems);
+
+    cv::Mat srcROI = src(srcRect);
+    cv::Mat dstROI = dst(srcRect + ofsSrcToDst);
+    
+    //cv::imshow("src roi", srcROI);
+    //cv::imshow("dst roi", dstROI);
+    //cv::waitKey(0);
+
+    PoissonImageEdit(srcROI, mask, dstROI);
+    return;
+
+    if (src.type() == CV_8UC1)
+    {
+        getEquation(srcROI, dstROI, mask, index, numElems, A, b, x);
+        std::vector<int> split;
+        A.calcSplit(split);
+        solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
+        copy(x, mask, index, dstROI);
+    }
+    else if (src.type() == CV_8UC3)
+    {
+        cv::Mat srcROISplit[3], dstROISplit[3];
+        for (int i = 0; i < 3; i++)
+        {
+            srcROISplit[i].create(src.size(), CV_8UC1);
+            dstROISplit[i].create(dst.size(), CV_8UC1);
+        }
+        cv::split(srcROI, srcROISplit);
+        cv::split(dstROI, dstROISplit);
+
+        for (int i = 0; i < 3; i++)
+        {
+            getEquation(srcROISplit[i], dstROISplit[i], mask, index, numElems, A, b, x);
+            std::vector<int> split;
+            A.calcSplit(split);
+            solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
+            copy(x, mask, index, dstROISplit[i]);
+        }
+        cv::merge(dstROISplit, 3, dstROI);
+    }
+}
+
 void main1()
 {
     //double A[] = {10, -1, 2, 0,
@@ -400,7 +597,7 @@ void main1()
     //cv::imwrite("dst.bmp", dst);
 }
 
-void main()
+void main2()
 {
     //cv::Mat src = cv::imread("C:\\Users\\zhengxuping\\Desktop\\GreatWhiteShark.jpg");
     //cv::Mat dst = cv::imread("C:\\Users\\zhengxuping\\Desktop\\beach.jpg");
@@ -410,12 +607,12 @@ void main()
     //srcContour[1] = cv::Point(550, 300) - cv::Point(320, 230);
     //srcContour[2] = cv::Point(550, 420) - cv::Point(320, 230);
     //srcContour[3] = cv::Point(380, 420) - cv::Point(320, 230);
-
     //std::vector<cv::Point> dstContour(4);
     //dstContour[0] = cv::Point(380, 300);
     //dstContour[1] = cv::Point(550, 300);
     //dstContour[2] = cv::Point(550, 420);
     //dstContour[3] = cv::Point(380, 420);
+    //cv::Point ofsSrcToDst = dstContour[0] - srcContour[0];
 
     cv::Mat src = cv::imread("220px-EyePhoto.jpg");
     cv::Mat dst = cv::imread("1074px-HandPhoto.jpg");
@@ -438,40 +635,26 @@ void main()
     cv::Mat b, x;
     int numElems;
 
-    draw(dstContour, dst.size(), mask);
+    cv::Rect srcRect;
+    draw(srcContour, src.size(), srcRect, mask);
     cv::imshow("mask", mask);
     cv::waitKey(0);
     makeIndex(mask, index, numElems);
+
+    cv::Mat srcROI = src(srcRect);
+    cv::Mat dstROI = dst(srcRect + ofsSrcToDst);
     
     //cv::imshow("src roi", srcROI);
     //cv::imshow("dst roi", dstROI);
     //cv::waitKey(0);
 
-    cv::Mat src2 = cv::Mat::zeros(dst.size(), src.type());
-    cv::Rect srcRect = cv::boundingRect(srcContour);
-    srcRect.x -= 1, srcRect.y -= 1, srcRect.width += 2, srcRect.height += 2;
-    //cv::Point ofsSrcToDst = dstContour[0] - srcContour[0];
-    cv::Rect src2Rect = srcRect + ofsSrcToDst;
-    cv::Mat srcPart = src(srcRect);
-    cv::Mat src2Part = src2(src2Rect);
-    srcPart.copyTo(src2Part);
-    //src2Rect.x -= 1, src2Rect.y -= 1, src2Rect.width += 2, src2Rect.height += 2;
-    //cv::Mat src2PartExtend = src2(src2Rect);
-    //src2PartExtend.row(1).copyTo(src2PartExtend.row(0));
-    //src2PartExtend.row(src2PartExtend.rows - 2).copyTo(src2PartExtend.row(src2PartExtend.rows - 1));
-    //src2PartExtend.col(1).copyTo(src2PartExtend.col(0));
-    //src2PartExtend.col(src2PartExtend.cols - 2).copyTo(src2PartExtend.col(src2PartExtend.cols - 1));
-    
-    cv::imshow("src2", src2);
-    cv::waitKey(0);
-
     if (src.type() == CV_8UC1)
     {
-        getEquation(src2, dst, mask, index, numElems, A, b, x);
+        getEquation(srcROI, dstROI, mask, index, numElems, A, b, x);
         std::vector<int> split;
         A.calcSplit(split);
         solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
-        copy(x, mask, index, dst);
+        copy(x, mask, index, dstROI);
     }
     else if (src.type() == CV_8UC3)
     {
@@ -481,8 +664,8 @@ void main()
             srcROISplit[i].create(src.size(), CV_8UC1);
             dstROISplit[i].create(dst.size(), CV_8UC1);
         }
-        cv::split(src2, srcROISplit);
-        cv::split(dst, dstROISplit);
+        cv::split(srcROI, srcROISplit);
+        cv::split(dstROI, dstROISplit);
 
         for (int i = 0; i < 3; i++)
         {
@@ -492,11 +675,24 @@ void main()
             solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
             copy(x, mask, index, dstROISplit[i]);
         }
-        cv::merge(dstROISplit, 3, dst);
+        cv::merge(dstROISplit, 3, dstROI);
     }
 
     cv::imshow("src", src);
     cv::imshow("dst", dst);
     cv::waitKey(0);
     //cv::imwrite("dst.bmp", dst);
+}
+
+void main()
+{
+    cv::Mat src = cv::imread("src_img01.jpg");
+    cv::Mat srcMask = cv::imread("mask_img01.jpg", cv::IMREAD_GRAYSCALE);
+    cv::Mat dst = cv::imread("tar_img01.jpg");
+    cv::Point ofsSrcToDst(10, 10);
+    cv::threshold(srcMask, srcMask, 128, 255, cv::THRESH_BINARY);
+    PoissonImageEdit(src, srcMask, ofsSrcToDst, dst);
+    cv::imshow("dst", dst);
+    cv::waitKey(0);
+    
 }
