@@ -178,6 +178,15 @@ void draw(const std::vector<cv::Point>& contour, cv::Size& imageSize, cv::Rect& 
     cv::drawContours(mask, contours, -1, cv::Scalar(255), -1, 8, cv::noArray(), 0, cv::Point(-left, -top));
 }
 
+void draw(const std::vector<cv::Point>& contour, cv::Size& size, cv::Mat& mask)
+{
+    mask.create(size, CV_8UC1);
+    mask.setTo(0);
+    std::vector<std::vector<cv::Point> > contours(1);
+    contours[0] = contour;
+    cv::drawContours(mask, contours, -1, cv::Scalar(255), -1, 8, cv::noArray(), 0);
+}
+
 void getEquation(const cv::Mat& src, const cv::Mat& dst, 
     const cv::Mat& mask, const cv::Mat& index, int count,
     SparseMat& A, cv::Mat& b, cv::Mat& x)
@@ -292,7 +301,7 @@ void copy(const cv::Mat& val, const cv::Mat& mask, const cv::Mat& index, cv::Mat
     }
 }
 
-void main()
+void main1()
 {
     //double A[] = {10, -1, 2, 0,
     //             -1, 11, -1, 3,
@@ -326,30 +335,30 @@ void main()
     sMat.insert(1, 4, 0.5);
     //return;
 
-    cv::Mat src/*Color*/ = cv::imread("C:\\Users\\zhengxuping\\Desktop\\QQ截图20150608184426.bmp");
-    cv::Mat dst/*Color*/ = cv::imread("C:\\Users\\zhengxuping\\Desktop\\QQ截图20150610172837.bmp");
+    cv::Mat src/*Color*/ = cv::imread("C:\\Users\\zhengxuping\\Desktop\\GreatWhiteShark.jpg");
+    cv::Mat dst/*Color*/ = cv::imread("C:\\Users\\zhengxuping\\Desktop\\beach.jpg");
 
     //cv::Mat src, dst;
     //cv::cvtColor(srcColor, src, CV_BGR2GRAY);
     //cv::cvtColor(dstColor, dst, CV_BGR2GRAY);
 
     std::vector<cv::Point> contour(4);
-    contour[0] = cv::Point(40, 40);
-    contour[1] = cv::Point(40, 150);
-    contour[2] = cv::Point(100, 150);
-    contour[3] = cv::Point(100, 40);
+    contour[0] = cv::Point(380, 300);
+    contour[1] = cv::Point(550, 300);
+    contour[2] = cv::Point(550, 420);
+    contour[3] = cv::Point(380, 420);
     cv::Rect extendRect;
     cv::Mat mask, index;
     SparseMat A;
     cv::Mat b, x;
     int numElems;
 
-    draw(contour, src.size(), extendRect, mask);
+    draw(contour, dst.size(), extendRect, mask);
     cv::imshow("mask", mask);
     cv::waitKey(0);
     makeIndex(mask, index, numElems);
 
-    cv::Mat srcROI(src, extendRect), dstROI(dst, extendRect);
+    cv::Mat srcROI(src, extendRect - cv::Point(320, 230)), dstROI(dst, extendRect);
     
     //cv::imshow("src roi", srcROI);
     //cv::imshow("dst roi", dstROI);
@@ -383,6 +392,107 @@ void main()
             copy(x, mask, index, dstROISplit[i]);
         }
         cv::merge(dstROISplit, 3, dstROI);
+    }
+
+    cv::imshow("src", src);
+    cv::imshow("dst", dst);
+    cv::waitKey(0);
+    //cv::imwrite("dst.bmp", dst);
+}
+
+void main()
+{
+    //cv::Mat src = cv::imread("C:\\Users\\zhengxuping\\Desktop\\GreatWhiteShark.jpg");
+    //cv::Mat dst = cv::imread("C:\\Users\\zhengxuping\\Desktop\\beach.jpg");
+
+    //std::vector<cv::Point> srcContour(4);
+    //srcContour[0] = cv::Point(380, 300) - cv::Point(320, 230);
+    //srcContour[1] = cv::Point(550, 300) - cv::Point(320, 230);
+    //srcContour[2] = cv::Point(550, 420) - cv::Point(320, 230);
+    //srcContour[3] = cv::Point(380, 420) - cv::Point(320, 230);
+
+    //std::vector<cv::Point> dstContour(4);
+    //dstContour[0] = cv::Point(380, 300);
+    //dstContour[1] = cv::Point(550, 300);
+    //dstContour[2] = cv::Point(550, 420);
+    //dstContour[3] = cv::Point(380, 420);
+
+    cv::Mat src = cv::imread("220px-EyePhoto.jpg");
+    cv::Mat dst = cv::imread("1074px-HandPhoto.jpg");
+
+    std::vector<cv::Point> srcContour(4);
+    srcContour[0] = cv::Point(1, 1);
+    srcContour[1] = cv::Point(218, 1);
+    srcContour[2] = cv::Point(218, 130);
+    srcContour[3] = cv::Point(1, 130);
+
+    cv::Point ofsSrcToDst(570, 300);
+    std::vector<cv::Point> dstContour(4);
+    dstContour[0] = srcContour[0] + ofsSrcToDst;
+    dstContour[1] = srcContour[1] + ofsSrcToDst;
+    dstContour[2] = srcContour[2] + ofsSrcToDst;
+    dstContour[3] = srcContour[3] + ofsSrcToDst;
+
+    cv::Mat mask, index;
+    SparseMat A;
+    cv::Mat b, x;
+    int numElems;
+
+    draw(dstContour, dst.size(), mask);
+    cv::imshow("mask", mask);
+    cv::waitKey(0);
+    makeIndex(mask, index, numElems);
+    
+    //cv::imshow("src roi", srcROI);
+    //cv::imshow("dst roi", dstROI);
+    //cv::waitKey(0);
+
+    cv::Mat src2 = cv::Mat::zeros(dst.size(), src.type());
+    cv::Rect srcRect = cv::boundingRect(srcContour);
+    srcRect.x -= 1, srcRect.y -= 1, srcRect.width += 2, srcRect.height += 2;
+    //cv::Point ofsSrcToDst = dstContour[0] - srcContour[0];
+    cv::Rect src2Rect = srcRect + ofsSrcToDst;
+    cv::Mat srcPart = src(srcRect);
+    cv::Mat src2Part = src2(src2Rect);
+    srcPart.copyTo(src2Part);
+    //src2Rect.x -= 1, src2Rect.y -= 1, src2Rect.width += 2, src2Rect.height += 2;
+    //cv::Mat src2PartExtend = src2(src2Rect);
+    //src2PartExtend.row(1).copyTo(src2PartExtend.row(0));
+    //src2PartExtend.row(src2PartExtend.rows - 2).copyTo(src2PartExtend.row(src2PartExtend.rows - 1));
+    //src2PartExtend.col(1).copyTo(src2PartExtend.col(0));
+    //src2PartExtend.col(src2PartExtend.cols - 2).copyTo(src2PartExtend.col(src2PartExtend.cols - 1));
+    
+    cv::imshow("src2", src2);
+    cv::waitKey(0);
+
+    if (src.type() == CV_8UC1)
+    {
+        getEquation(src2, dst, mask, index, numElems, A, b, x);
+        std::vector<int> split;
+        A.calcSplit(split);
+        solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
+        copy(x, mask, index, dst);
+    }
+    else if (src.type() == CV_8UC3)
+    {
+        cv::Mat srcROISplit[3], dstROISplit[3];
+        for (int i = 0; i < 3; i++)
+        {
+            srcROISplit[i].create(src.size(), CV_8UC1);
+            dstROISplit[i].create(dst.size(), CV_8UC1);
+        }
+        cv::split(src2, srcROISplit);
+        cv::split(dst, dstROISplit);
+
+        for (int i = 0; i < 3; i++)
+        {
+            getEquation(srcROISplit[i], dstROISplit[i], mask, index, numElems, A, b, x);
+            std::vector<int> split;
+            A.calcSplit(split);
+            solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
+            copy(x, mask, index, dstROISplit[i]);
+        }
+        cv::merge(dstROISplit, 3, dst);
     }
 
     cv::imshow("src", src);
