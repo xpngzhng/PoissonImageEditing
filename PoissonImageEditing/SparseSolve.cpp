@@ -18,15 +18,16 @@ struct IndexedValue
 struct SparseMat
 {
     SparseMat() : rows(0), maxCols(0) {}
+
     SparseMat(int rows_, int cols_) :
         rows(0), maxCols(0)
     {
         create(rows_, cols_);
     }
+
     void create(int rows_, int cols_)
     {
-        if ((rows_ < 0) || (cols_ < 0))
-            return;
+        CV_Assert(rows_ > 0 && cols_ > 0);
 
         rows = rows_;
         maxCols = cols_;
@@ -36,6 +37,7 @@ struct SparseMat
         count.resize(rows);
         memset(&count[0], 0, rows * sizeof(int));
     }
+
     void release()
     {
         rows = 0;
@@ -44,31 +46,34 @@ struct SparseMat
         count.clear();
         data = 0;
     }
+
     const IndexedValue* rowPtr(int row) const
     {
-        return ((row < 0) || (row >= rows)) ? 0 : (data + row * maxCols);
+        CV_Assert(row >= 0 && row < rows);
+        return data + row * maxCols;
     }
+
     IndexedValue* rowPtr(int row)
     {
-        return ((row < 0) || (row >= rows)) ? 0 : (data + row * maxCols);
+        CV_Assert(row >= 0 && row < rows);
+        return data + row * maxCols;
     }
-    void insert(int row, int index, double value)
+
+    void insert(int row, int col, double value)
     {
-        if ((row < 0) || (row >= rows))
-            return;
+        CV_Assert(row >= 0 && row < rows);
 
         int currCount = count[row];
-        if (currCount == maxCols)
-            return;
+        CV_Assert(currCount < maxCols);
 
         IndexedValue* rowData = rowPtr(row);        
         int i = 0;
-        if ((currCount > 0) && (index > rowData[0].index))
+        if ((currCount > 0) && (col > rowData[0].index))
         {
             for (i = 1; i < currCount; i++)
             {
-                if ((index > rowData[i - 1].index) &&
-                    (index < rowData[i].index))
+                if ((col > rowData[i - 1].index) &&
+                    (col < rowData[i].index))
                     break;
             }
         }
@@ -77,12 +82,13 @@ struct SparseMat
             for (int j = currCount; j >= i; j--)
                 rowData[j + 1] = rowData[j];
         }
-        rowData[i] = IndexedValue(index, value);
+        rowData[i] = IndexedValue(col, value);
         ++count[row];
     }
-    void calcSplit(std::vector<int>& split) const
+
+    void calcDiagonalElementsPositions(std::vector<int>& pos) const
     {
-        split.resize(rows, -1);
+        pos.resize(rows, -1);
         for (int i = 0; i < rows; i++)
         {
             const IndexedValue* ptrRow = rowPtr(i);
@@ -90,12 +96,13 @@ struct SparseMat
             {
                 if (ptrRow[j].index == i)
                 {
-                    split[i] = j;
+                    pos[i] = j;
                     break;
                 }
             }
         }
     }
+
     int rows, maxCols;    
     std::vector<IndexedValue> buf;
     std::vector<int> count;
@@ -106,7 +113,7 @@ private:
     SparseMat& operator=(const SparseMat&);
 };
 
-void solve(const IndexedValue* A, const int* length, const int* split, 
+void solve(const IndexedValue* A, const int* length, const int* diagPos, 
     const double* b, double* x, int rows, int cols, int maxIters, double eps)
 {
     for (int iter = 0; iter < maxIters; iter++)
@@ -116,12 +123,12 @@ void solve(const IndexedValue* A, const int* length, const int* split,
         {
             double val = 0;
             const IndexedValue* ptrRow = A + cols * i;
-            for (int j = 0; j < split[i]; j++)
+            for (int j = 0; j < diagPos[i]; j++)
                 val += ptrRow[j].value * x[ptrRow[j].index];
-            for (int j = split[i] + 1; j < length[i]; j++)
+            for (int j = diagPos[i] + 1; j < length[i]; j++)
                 val += ptrRow[j].value * x[ptrRow[j].index];
             val = b[i] - val;
-            val /= ptrRow[split[i]].value;
+            val /= ptrRow[diagPos[i]].value;
             if (fabs(val - x[i]) < eps)
                 count++;
             x[i] = val;
@@ -158,19 +165,26 @@ void makeIndex(const cv::Mat& mask, cv::Mat& index, int& numElems)
 void draw(const std::vector<cv::Point>& contour, const cv::Size& imageSize, cv::Rect& extendRect, cv::Mat& mask)
 {
     cv::Rect contourRect = cv::boundingRect(contour);
+
     int left, right, top, bottom;
     left = contourRect.x;
     right = contourRect.x + contourRect.width;
     top = contourRect.y;
     bottom = contourRect.y + contourRect.height;
-    CV_Assert(left > 0); left--;
-    CV_Assert(right < imageSize.width); right++;
-    CV_Assert(top > 0); top--;
-    CV_Assert(bottom < imageSize.height); bottom++;
+    CV_Assert(left > 0); 
+    left--;
+    CV_Assert(right < imageSize.width); 
+    right++;
+    CV_Assert(top > 0); 
+    top--;
+    CV_Assert(bottom < imageSize.height); 
+    bottom++;
+
     extendRect.x = left;
     extendRect.y = top;
     extendRect.width = right - left;
     extendRect.height = bottom - top;
+
     mask.create(extendRect.height, extendRect.width, CV_8UC1);
     mask.setTo(0);
     std::vector<std::vector<cv::Point> > contours(1);
@@ -345,9 +359,9 @@ void PoissonImageEdit(const cv::Mat& src, const cv::Mat& mask, cv::Mat& dst, boo
     if (src.type() == CV_8UC1)
     {
         getEquation(src, dst, mask, index, numElems, A, b, x, mixGrad);
-        std::vector<int> split;
-        A.calcSplit(split);
-        solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
+        std::vector<int> diagPos;
+        A.calcDiagonalElementsPositions(diagPos);
+        solve(A.data, &A.count[0], &diagPos[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
         copy(x, mask, index, dst);
     }
     else if (src.type() == CV_8UC3)
@@ -364,9 +378,9 @@ void PoissonImageEdit(const cv::Mat& src, const cv::Mat& mask, cv::Mat& dst, boo
         for (int i = 0; i < 3; i++)
         {
             getEquation(srcROISplit[i], dstROISplit[i], mask, index, numElems, A, b, x, mixGrad);
-            std::vector<int> split;
-            A.calcSplit(split);
-            solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
+            std::vector<int> diagPos;
+            A.calcDiagonalElementsPositions(diagPos);
+            solve(A.data, &A.count[0], &diagPos[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
             copy(x, mask, index, dstROISplit[i]);
         }
         cv::merge(dstROISplit, 3, dst);
@@ -467,7 +481,7 @@ void PoissonImageEdit(const cv::Mat& src, const cv::Mat& srcMask,
     return;
 }
 
-void main1()
+void main()
 {
     //double A[] = {10, -1, 2, 0,
     //             -1, 11, -1, 3,
@@ -509,22 +523,30 @@ void main1()
     //cv::cvtColor(dstColor, dst, CV_BGR2GRAY);
 
     std::vector<cv::Point> contour(4);
-    contour[0] = cv::Point(380, 300);
-    contour[1] = cv::Point(550, 300);
-    contour[2] = cv::Point(550, 420);
-    contour[3] = cv::Point(380, 420);
+    contour[0] = cv::Point(380, 300) - cv::Point(320, 230);
+    contour[1] = cv::Point(550, 300) - cv::Point(320, 230);
+    contour[2] = cv::Point(550, 420) - cv::Point(320, 230);
+    contour[3] = cv::Point(380, 420) - cv::Point(320, 230);
+    cv::Point ofsSrcToDst = cv::Point(320, 230);
+
+    PoissonImageEdit(src, contour, ofsSrcToDst, dst, false);
+    cv::imshow("src", src);
+    cv::imshow("dst", dst);
+    cv::waitKey(0);
+    return;
+
     cv::Rect extendRect;
     cv::Mat mask, index;
     SparseMat A;
     cv::Mat b, x;
     int numElems;
 
-    draw(contour, dst.size(), extendRect, mask);
+    draw(contour, src.size(), extendRect, mask);
     cv::imshow("mask", mask);
     cv::waitKey(0);
     makeIndex(mask, index, numElems);
 
-    cv::Mat srcROI(src, extendRect - cv::Point(320, 230)), dstROI(dst, extendRect);
+    cv::Mat srcROI(src, extendRect), dstROI(dst, extendRect + ofsSrcToDst);
     
     //cv::imshow("src roi", srcROI);
     //cv::imshow("dst roi", dstROI);
@@ -533,9 +555,9 @@ void main1()
     if (src.type() == CV_8UC1)
     {
         getEquation(srcROI, dstROI, mask, index, numElems, A, b, x);
-        std::vector<int> split;
-        A.calcSplit(split);
-        solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
+        std::vector<int> diagPos;
+        A.calcDiagonalElementsPositions(diagPos);
+        solve(A.data, &A.count[0], &diagPos[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
         copy(x, mask, index, dstROI);
     }
     else if (src.type() == CV_8UC3)
@@ -552,9 +574,9 @@ void main1()
         for (int i = 0; i < 3; i++)
         {
             getEquation(srcROISplit[i], dstROISplit[i], mask, index, numElems, A, b, x);
-            std::vector<int> split;
-            A.calcSplit(split);
-            solve(A.data, &A.count[0], &split[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
+            std::vector<int> diagPos;
+            A.calcDiagonalElementsPositions(diagPos);
+            solve(A.data, &A.count[0], &diagPos[0], (double*)b.data, (double*)x.data, A.rows, A.maxCols, 10000, 0.01);
             copy(x, mask, index, dstROISplit[i]);
         }
         cv::merge(dstROISplit, 3, dstROI);
@@ -566,7 +588,7 @@ void main1()
     //cv::imwrite("dst.bmp", dst);
 }
 
-void main()
+void main2()
 {
     //cv::Mat src = cv::imread("C:\\Users\\zhengxuping\\Desktop\\GreatWhiteShark.jpg");
     //cv::Mat dst = cv::imread("C:\\Users\\zhengxuping\\Desktop\\beach.jpg");
