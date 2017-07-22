@@ -131,10 +131,6 @@ void solve(const IndexedValue* A, const int* length, const int* split,
             printf("count = %d, end\n", iter + 1);
             break;
         }
-        if ((iter + 1) % 100 == 0)
-        {
-            printf("iter = %d\n", iter + 1);
-        }
     }
 }
 
@@ -331,7 +327,7 @@ void main()
     //return;
 
     cv::Mat src/*Color*/ = cv::imread("C:\\Users\\zhengxuping\\Desktop\\QQ截图20150608184426.bmp");
-    cv::Mat dst/*Color*/ = cv::imread("C:\\Users\\zhengxuping\\Desktop\\QQ截图20150609111926.bmp");
+    cv::Mat dst/*Color*/ = cv::imread("C:\\Users\\zhengxuping\\Desktop\\QQ截图20150610172837.bmp");
 
     //cv::Mat src, dst;
     //cv::cvtColor(srcColor, src, CV_BGR2GRAY);
@@ -377,13 +373,6 @@ void main()
         }
         cv::split(srcROI, srcROISplit);
         cv::split(dstROI, dstROISplit);
-        //cv::imshow("src split 0", srcROISplit[0]);
-        //cv::imshow("src split 1", srcROISplit[1]);
-        //cv::imshow("src split 2", srcROISplit[2]);
-        //cv::imshow("dst split 0", dstROISplit[0]);
-        //cv::imshow("dst split 1", dstROISplit[1]);
-        //cv::imshow("dst split 2", dstROISplit[2]);
-        //cv::waitKey(0);
 
         for (int i = 0; i < 3; i++)
         {
