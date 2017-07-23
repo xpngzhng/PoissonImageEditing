@@ -456,9 +456,9 @@ void PoissonImageEdit(const cv::Mat& src, const cv::Mat& mask, cv::Mat& dst, boo
 
 /*!
   Overloaded Poisson image editing function.
-  Source image, mask image and destination image should have the same size.
-  Source image's content inside the mask's non zero region will be blended into 
-  the destination image, using Possion image editing algorithm.
+  Source image and destination image do not need to have the same size.
+  Source image's content inside the contour will be blended into 
+  the destination image, with some magnitude of shifting, using Possion image editing algorithm.
   \param[in] src          Source image, should be of type CV_8UC1 or CV_8UC3.
   \param[in] srcContour   A contour indicating the region of interest in the 
                           source image. Pixels inside the region will be blended to 
@@ -494,9 +494,9 @@ void PoissonImageEdit(const cv::Mat& src, const std::vector<cv::Point>& srcConto
 
 /*!
   Overloaded Poisson image editing function.
-  Source image, mask image and destination image should have the same size.
+  Source image and source mask imageshould have the same size.
   Source image's content inside the mask's non zero region will be blended into 
-  the destination image, using Possion image editing algorithm.
+  the destination image, with some magnitude of shifting, using Possion image editing algorithm.
   \param[in] src          Source image, should be of type CV_8UC1 or CV_8UC3.
   \param[in] srcMask      Source image's mask indicating the region of interest in the 
                           source image. Pixels inside the region will be blended to 
@@ -528,7 +528,7 @@ void PoissonImageEdit(const cv::Mat& src, const cv::Mat& srcMask,
     return;
 }
 
-#define GRAY 1
+#define GRAY 0
 
 void main()
 {
@@ -551,6 +551,7 @@ void main()
         PoissonImageEdit(src, contour, ofsSrcToDst, dst, true);
         cv::imshow("src", src);
         cv::imshow("dst", dst);
+        cv::imwrite("result0.jpg", dst);
         cv::waitKey(0);
     }
 
@@ -574,6 +575,7 @@ void main()
         PoissonImageEdit(src, srcContour, ofsSrcToDst, dst, true);
         cv::imshow("src", src);
         cv::imshow("dst", dst);
+        cv::imwrite("result1.jpg", dst);
         cv::waitKey(0);
     }
 
@@ -599,6 +601,7 @@ void main()
         PoissonImageEdit(src, srcContour, ofsSrcToDst, dst, true);
         cv::imshow("src", src);
         cv::imshow("dst", dst);
+        cv::imwrite("result2.jpg", dst);
         cv::waitKey(0);
     }
 
@@ -617,6 +620,7 @@ void main()
         PoissonImageEdit(src, srcMask, ofsSrcToDst, dst, true);
         cv::imshow("src", src);
         cv::imshow("dst", dst);
+        cv::imwrite("result3.jpg", dst);
         cv::waitKey(0);
     }
 
@@ -633,6 +637,7 @@ void main()
         PoissonImageEdit(src, srcMask, ofsSrcToDst, dst, true);
         cv::imshow("src", src);
         cv::imshow("dst", dst);
+        cv::imwrite("result4.jpg", dst);
         cv::waitKey(0);
     }
 
@@ -649,6 +654,7 @@ void main()
         PoissonImageEdit(src, srcMask, ofsSrcToDst, dst, true);
         cv::imshow("src", src);
         cv::imshow("dst", dst);
+        cv::imwrite("result5.jpg", dst);
         cv::waitKey(0);
     }
 
@@ -665,6 +671,7 @@ void main()
         PoissonImageEdit(src, srcMask, ofsSrcToDst, dst, true);
         cv::imshow("src", src);
         cv::imshow("dst", dst);
+        cv::imwrite("result6.jpg", dst);
         cv::waitKey(0);
     }
     

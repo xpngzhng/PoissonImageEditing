@@ -233,32 +233,38 @@ void main()
     //cv::imshow("image", image);
     //cv::waitKey(0);
 
-    cv::Mat srcColor = cv::imread("C:\\Users\\zhengxuping\\Desktop\\QQ截图20150608184426.bmp");
-    cv::Mat dstColor = cv::imread("C:\\Users\\zhengxuping\\Desktop\\QQ截图20150608184516.bmp");
+    cv::Mat srcColor = cv::imread("220px-EyePhoto.jpg");
+    cv::Mat dstColor = cv::imread("1074px-HandPhoto.jpg");
 
     cv::Mat src, dst;
     cv::cvtColor(srcColor, src, CV_BGR2GRAY);
     cv::cvtColor(dstColor, dst, CV_BGR2GRAY);
 
-    std::vector<cv::Point> contour(4);
-    contour[0] = cv::Point(40, 40);
-    contour[1] = cv::Point(40, 80);
-    contour[2] = cv::Point(80, 80);
-    contour[3] = cv::Point(80, 40);
+    std::vector<cv::Point> srcContour(4);
+    //srcContour[0] = cv::Point(1, 1);
+    //srcContour[1] = cv::Point(218, 1);
+    //srcContour[2] = cv::Point(218, 130);
+    //srcContour[3] = cv::Point(1, 130);
+    srcContour[0] = cv::Point(1, 1);
+    srcContour[1] = cv::Point(58, 1);
+    srcContour[2] = cv::Point(58, 60);
+    srcContour[3] = cv::Point(1, 60);
+    cv::Point ofsSrcToDst(570, 300);
+
     cv::Rect extendRect;
     cv::Mat mask, index;
     cv::Mat A, b, x;
     int numElems;
 
-    draw(contour, src.size(), extendRect, mask);
+    draw(srcContour, src.size(), extendRect, mask);
     cv::imshow("mask", mask);
     cv::waitKey(0);
     makeIndex(mask, index, numElems);
 
-    cv::Mat srcROI(src, extendRect), dstROI(dst, extendRect);
+    cv::Mat srcROI(src, extendRect), dstROI(dst, extendRect + ofsSrcToDst);
     getEquation(srcROI, dstROI, mask, index, numElems, A, b, x);
-    print(A);
-    return;
+    //print(A);
+    //return;
     solve((double*)A.data, (double*)b.data, (double*)x.data, numElems, A.step[0], 10000, 0.01);
     copy(x, mask, index, dstROI);    
 
