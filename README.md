@@ -13,3 +13,57 @@ https://www.cs.jhu.edu/~misha/Fall07/Papers/Perez03.pdf) 中的基本算法。
 
 泊松图像融合算法需要求解一个线性方程组 $\mathbf A \mathbf x = \mathbf b$。根据论文的建议，我用 [Gauss-Seidel 算法](https://en.wikipedia.org/wiki/Gauss%E2%80%93Seidel_method) 求解了这个方程。我最早期的实现位于 Solve.cpp 中。当时我直接采用 OpenCV 的 `cv::Mat` 去表示 $\mathbf A$，由于这个矩阵的行列数等于感兴趣区域像素的数量，当感兴趣区域比较大的时候，存储数据量很大，而且运算速度很慢。根据论文中的公式 (7) 很容易发现其实这个矩阵 $\mathbf A$ 是一个稀疏矩阵，于是我自己写了一个 SparseMat 结构，并用这个稀疏矩阵求解方程，代码位于 SparseSolve.cpp 中。
 
+## 结果示例
+源图片、源图片蒙版和目的图片来自 http://cs.brown.edu/courses/csci1950-g/results/proj2/pdoran/
+### 第一组
+![](PoissonImageEditing/src_img01.jpg)
+源图片
+
+![](PoissonImageEditing/mask_img01.jpg)
+源图片蒙版
+
+![](PoissonImageEditing/tar_img01.jpg)
+目的图片
+
+![](PoissonImageEditing/result3.jpg)
+结果图片
+
+### 第二组
+![](PoissonImageEditing/src_img02.jpg)
+源图片
+
+![](PoissonImageEditing/mask_img02.jpg)
+源图片蒙版
+
+![](PoissonImageEditing/tar_img02.jpg)
+目的图片
+
+![](PoissonImageEditing/result4.jpg)
+结果图片
+
+### 第三组
+![](PoissonImageEditing/src_img03.jpg)
+源图片
+
+![](PoissonImageEditing/mask_img03.jpg)
+源图片蒙版
+
+![](PoissonImageEditing/tar_img03.jpg)
+目的图片
+
+![](PoissonImageEditing/result5.jpg)
+结果图片
+
+### 第四组
+![](PoissonImageEditing/src_img04.jpg)
+源图片
+
+![](PoissonImageEditing/mask_img04.jpg)
+源图片蒙版
+
+![](PoissonImageEditing/tar_img04.jpg)
+目的图片
+
+![](PoissonImageEditing/result6.jpg)
+结果图片
+
