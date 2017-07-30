@@ -67,3 +67,5 @@ https://www.cs.jhu.edu/~misha/Fall07/Papers/Perez03.pdf) 中的基本算法。
 ![](PoissonImageEditing/result6.jpg)
 结果图片
 
+## 背景
+2015 年 6 月看到了这个算法，我很感兴趣，就利用空闲时间做了下。其实也没什么用，呵呵。
